@@ -4,6 +4,7 @@ import com.optedoblivion.MinimalNewsWidget.R;
 import com.optedoblivion.MinimalNewsWidget.R.id;
 import com.optedoblivion.MinimalNewsWidget.R.layout;
 import com.optedoblivion.MinimalNewsWidget.service.UpdaterService;
+import com.optedoblivion.MinimalNewsWidget.widget.MinimalNewsWidgetProvider;
 
 import android.app.Activity;
 import android.appwidget.AppWidgetManager;
@@ -12,9 +13,11 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.Toast;
 
 
 public class MinimalNewsWidgetConfigure extends Activity{
@@ -23,7 +26,7 @@ public class MinimalNewsWidgetConfigure extends Activity{
             = "com.optedoblivion.MinimalNewsWidget.MinimalNewsWidgetProvider";
     private static final String BG_PREFIX_KEY = "bg_";
     private static final String LINK_PREFIX_KEY = "link_";
-
+    private static final String COMPLETED_PREFIX_KEY = "completed_";
     int mAppWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID;
 
     CheckBox mUseBackground;
@@ -65,30 +68,28 @@ public class MinimalNewsWidgetConfigure extends Activity{
             final Context context = MinimalNewsWidgetConfigure.this;
 
             String rssLink = mRssLink.getText().toString();
+            if (rssLink == ""){
+                Toast.makeText(context, "You must specify a URL", 
+                                                          Toast.LENGTH_SHORT);
+                return;
+            }
             boolean isChecked = mUseBackground.isChecked();
             String useBackground = (isChecked) ? "true" : "false";
             saveTitlePref(context, LINK_PREFIX_KEY, mAppWidgetId, rssLink);
             saveTitlePref(context, BG_PREFIX_KEY, mAppWidgetId, 
                                                                useBackground);
+            saveTitlePref(context, COMPLETED_PREFIX_KEY, mAppWidgetId, 
+                                                                      "true");
             
             
             // Push widget update to surface with newly set prefix
             AppWidgetManager appWidgetManager = AppWidgetManager
                                                         .getInstance(context);
-//            MinimalNewsWidgetProvider.updateAppWidget(context, 
-//                    appWidgetManager,
-//                    mAppWidgetId, useBackground);
-
+            
             // Make sure we pass back the original appWidgetId
             Intent resultValue = new Intent();
             resultValue.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, 
                                                                 mAppWidgetId);
-
-            Intent updaterServiceIntent = 
-                                    new Intent(context, UpdaterService.class);
-            updaterServiceIntent.setAction(
-                         "com.optedoblivion.MinimalNewsWidget.START_SERVICE");
-            startService(updaterServiceIntent);
             setResult(RESULT_OK, resultValue);
             finish();
         }
@@ -99,7 +100,7 @@ public class MinimalNewsWidgetConfigure extends Activity{
                                                int appWidgetId, String text) {
         SharedPreferences.Editor prefs = 
                            context.getSharedPreferences(PREFS_NAME, 0).edit();
-        prefs.putString(prefix, text);
+        prefs.putString(prefix + appWidgetId, text);
         prefs.commit();
     }
 
@@ -115,12 +116,25 @@ public class MinimalNewsWidgetConfigure extends Activity{
 //        }
 //    }
 //
-//    static void deleteTitlePref(Context context, int appWidgetId) {
-//    }
+    public static void deleteTitlePref(Context context, int appWidgetId) {
+        SharedPreferences.Editor prefs = 
+                           context.getSharedPreferences(PREFS_NAME, 0).edit();
+        prefs.remove(LINK_PREFIX_KEY + appWidgetId);
+        prefs.remove(BG_PREFIX_KEY + appWidgetId);
+        prefs.commit();
+    }
+    
 //
 //    static void loadAllTitlePrefs(Context context, ArrayList<Integer> appWidgetIds,
 //            ArrayList<String> texts) {
 //    }
-
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            String key = String.valueOf(mAppWidgetId);
+            MinimalNewsWidgetProvider.cancelTimer(key);
+            return super.onKeyDown(keyCode, event);
+        }
+        return super.onKeyDown(keyCode, event);
+    } 
     
 }

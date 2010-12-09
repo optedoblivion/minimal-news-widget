@@ -22,7 +22,8 @@ public class DBAdapter extends SQLiteOpenHelper{
     + "_id integer primary key autoincrement, "
     + "title VARCHAR(255), "
     + "link VARCHAR(255), "
-    + "updated DATE"
+    + "updated DATE, "
+    + "appWidgetId integer"
     + ")";
     
     private Context mContext;
@@ -51,10 +52,10 @@ public class DBAdapter extends SQLiteOpenHelper{
         }
     }
 
-    public Cursor getFeeds(){
+    public Cursor getFeeds(int appWidgetId){
         String[] columns = {"title", "link"};
-        String selection = null;
-        String[] selectionArgs = null;
+        String selection = "appWidgetId = ?";
+        String[] selectionArgs = {String.valueOf(appWidgetId)};
         String groupBy = null;
         String having = null;
         String orderBy = null; //"updated DESC";
@@ -80,10 +81,11 @@ public class DBAdapter extends SQLiteOpenHelper{
         }
     }
     
-    public void clearFeeds(){
+    public void clearFeeds(int appWidgetId){
         try{
             sqliteDb = this.getWritableDatabase();
-            sqliteDb.execSQL("DELETE FROM " + FEED_TABLE);
+            sqliteDb.execSQL("DELETE FROM " + FEED_TABLE + 
+                                       " WHERE appWidgetId = " + appWidgetId);
             sqliteDb.execSQL("VACUUM");
         }catch(Exception e){
             Log.e(TAG, e.toString());

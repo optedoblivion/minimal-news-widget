@@ -21,12 +21,14 @@
         <LinearLayout
             android:layout_width="fill_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal" >
+            android:orientation="horizontal" 
+            android:visibility="invisible">
             <CheckBox
                 android:text="Semi-Transparent Background"
                 android:id="@+id/useBackground" 
                 android:layout_width="fill_parent" 
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content" 
+                android:visibility="invisible"/>
         
         </LinearLayout> 
     </LinearLayout>

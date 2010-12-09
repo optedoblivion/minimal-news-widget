@@ -1,12 +1,15 @@
 package com.optedoblivion.MinimalNewsWidget.widget;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Timer;
 import java.util.TimerTask;
 
 import com.optedoblivion.MinimalNewsWidget.R;
 import com.optedoblivion.MinimalNewsWidget.R.layout;
 import com.optedoblivion.MinimalNewsWidget.data.DBAdapter;
+import com.optedoblivion.MinimalNewsWidget.service.UpdaterService;
+import com.optedoblivion.MinimalNewsWidget.settings.MinimalNewsWidgetConfigure;
 
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
@@ -14,100 +17,151 @@ import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.util.Log;
 import android.widget.RemoteViews;
 import android.widget.TextView;
 
 public class MinimalNewsWidgetProvider extends AppWidgetProvider {
-    
+    private static HashMap<String, Timer> timers = null;
+    private static final String PREFS_NAME
+            = "com.optedoblivion.MinimalNewsWidget.MinimalNewsWidgetProvider";
+    private static SharedPreferences prefs;
+    private static final String COMPLETED_PREFIX_KEY = "completed_";
+
+    public static void cancelTimer(String key){
+        if (timers.containsKey(key) && timers.get(key) != null){
+            timers.get(key).cancel();
+            timers.remove(key);
+        }
+    }
+
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, 
                                                           int[] appWidgetIds){
-
+        super.onUpdate(context, appWidgetManager, appWidgetIds);
+        if (timers == null){
+            timers = new HashMap<String, Timer>();
+        }
+        if (appWidgetIds.length > 0){
+            int appWidgetId = appWidgetIds[0];
+            String key = String.valueOf(appWidgetId);
+            cancelTimer(key);
             Timer timer = new Timer();
-            timer.scheduleAtFixedRate(new MyTime(context, appWidgetManager, appWidgetIds), 
-                                                                     1, 15000);
-            super.onUpdate(context, appWidgetManager, appWidgetIds);
+            timer.scheduleAtFixedRate(new WidgetUpdateTimer(context, 
+                                    appWidgetManager, appWidgetId), 1, 5000);
+            timer.scheduleAtFixedRate(new ServiceTimer(context, 
+                                                     appWidgetId), 1, 10000);
+            timers.put(key, timer);
         }
     }
-    
-    
-    class MyTime extends TimerTask {
-        private static final String TAG = "MNWProvider";
-        RemoteViews remoteViews;
-        AppWidgetManager appWidgetManager;
-        ComponentName thisWidget;
+
+    @Override
+    public void onDeleted(Context context, int[] appWidgetIds) {
+        if(appWidgetIds.length > 0){
+            int appWidgetId = appWidgetIds[0];
+            String key = String.valueOf(appWidgetId);
+            MinimalNewsWidgetConfigure.deleteTitlePref(
+                                                    context, appWidgetIds[0]);
+            cancelTimer(key);
+            DBAdapter dbAdapter = new DBAdapter(context);
+            dbAdapter.clearFeeds(appWidgetId);
+        }
+    }
+
+
+    class ServiceTimer extends TimerTask {
+        private static final String TAG = "ServiceTimer";
         Context mContext;
-        int[] appWidgetIds;
+        int appWidgetId;
+        public ServiceTimer(Context context, int appWidgetId){
+            mContext = context;
+            this.appWidgetId = appWidgetId;
+        }
+
+        @Override
+        public void run() {
+          Intent updaterServiceIntent = new Intent(mContext, 
+                                                        UpdaterService.class);
+          updaterServiceIntent.setAction(
+                         "com.optedoblivion.MinimalNewsWidget.START_SERVICE");
+          updaterServiceIntent.addFlags(this.appWidgetId);
+          mContext.startService(updaterServiceIntent);
+        }
+    }
+
+    class WidgetUpdateTimer extends TimerTask {
+        private static final String TAG = "WidgetUpdateTimer";
+        AppWidgetManager appWidgetManager;
+        Context mContext;
+        int appWidgetId;
 
         TextView tView = null;
         DBAdapter dbAdapter = null;
         // Use this to emulate caching, so we don't hit the db every time we 
         // update.
-        ArrayList<ArrayList<String>> feeds = new ArrayList<ArrayList<String>>();
+        ArrayList<ArrayList<String>> feeds = 
+                                           new ArrayList<ArrayList<String>>();
         int currentFeed = 0;
         int maxFeeds = 0;
 
-        public MyTime(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
+        public WidgetUpdateTimer(Context context, 
+                      AppWidgetManager appWidgetManager, int appWidgetId) {
             this.appWidgetManager = appWidgetManager;
-            this.appWidgetIds = appWidgetIds;
+            this.appWidgetId = appWidgetId;
             mContext = context;
-            remoteViews = new RemoteViews(context.getPackageName(), R.layout.minimal_news_widget);
-            thisWidget = new ComponentName(context, MinimalNewsWidgetProvider.class);
             currentFeed = 0;
             maxFeeds = 0;
         }
-        
+//      // Create an Intent to launch ExampleActivity
+//      Intent intent = new Intent(context, ExampleActivity.class);
+//      PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, 0);
+//      // Get the layout for the App Widget and attach an on-click listener to the button
+
         @Override
         public void run() {
-            int N = appWidgetIds.length;
-            ArrayList<String> tmp;
-            for (int i=0; i<N; i++){
-                int appWidgetId = appWidgetIds[i];
-//                // Create an Intent to launch ExampleActivity
-//                Intent intent = new Intent(context, ExampleActivity.class);
-//                PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, 0);
-//                // Get the layout for the App Widget and attach an on-click listener to the button
-
-                if (currentFeed >= maxFeeds){ 
-                    dbAdapter = new DBAdapter(mContext);
-                    Cursor items = dbAdapter.getFeeds();
-                    if (items!=null){
-                        int itemCount = items.getCount();
-                        int c;
-                        for(c=0;c<itemCount;c++){
-                            items.moveToPosition(c);
-                            String title = items.getString(
-                                                       items.getColumnIndex("title"));
-                            String link = items.getString(
-                                                       items.getColumnIndex("link"));
-                            tmp = new ArrayList<String>();
-                            tmp.add(title);
-                            tmp.add(link);
-                            feeds.add(tmp);
-                        }
-                        maxFeeds = itemCount;
-                        currentFeed = 0;
+            if (currentFeed >= maxFeeds){
+                ArrayList<String> tmp;
+                dbAdapter = new DBAdapter(mContext);
+                Cursor items = dbAdapter.getFeeds(appWidgetId);
+                if (items!=null){
+                    int itemCount = items.getCount();
+                    int c;
+                    for(c=0;c<feeds.size();c++){
+                        feeds.remove(c);
                     }
-                    items.close();
-                    dbAdapter.closeDb();
+                    for(c=0;c<itemCount;c++){
+                        items.moveToPosition(c);
+                        String title = items.getString(
+                                           items.getColumnIndex("title"));
+                        String link = items.getString(
+                                            items.getColumnIndex("link"));
+                        tmp = new ArrayList<String>();
+                        tmp.add(title);
+                        tmp.add(link);
+                        feeds.add(tmp);
+                    }
+                    maxFeeds = itemCount;
+                    currentFeed = 0;
                 }
-                RemoteViews views = new RemoteViews(mContext.getPackageName(), 
-                        R.layout.minimal_news_widget);
-                if (!feeds.isEmpty()){
-                    String displayTitle = feeds.get(i).get(0);
-                    String displayLink = feeds.get(i).get(1);
-                    feeds.remove(i);
-                    maxFeeds -= 1;
-                    Intent intent = new Intent(Intent.ACTION_VIEW);
-                    PendingIntent pendingIntent = PendingIntent.getActivity(
-                                                          mContext, 0, intent, 0);
-                    //views.setOnClickPendingIntent(views.getLayoutId(), pendingIntent);
-                    views.setTextViewText(R.id.TextView01, displayTitle);
-                }
+                items.close();
+                dbAdapter.closeDb();
+            }
+            RemoteViews views = new RemoteViews(mContext.getPackageName(),
+                    R.layout.minimal_news_widget);
+            if (!feeds.isEmpty()){
+                String displayTitle = feeds.get(currentFeed).get(0);
+                String displayLink = feeds.get(currentFeed).get(1);
+                currentFeed++;
+                Intent intent = new Intent(Intent.ACTION_VIEW);
+                PendingIntent pendingIntent = PendingIntent.getActivity(
+                                                  mContext, 0, intent, 0);
+                //views.setOnClickPendingIntent(views.getLayoutId(), pendingIntent);
+                views.setTextViewText(R.id.TextView01, displayTitle);
+            }
             appWidgetManager.updateAppWidget(appWidgetId, views);
         }
-    }
     
+    }
 }

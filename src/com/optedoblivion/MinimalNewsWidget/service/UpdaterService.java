@@ -6,6 +6,8 @@ import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.Iterator;
+import java.util.Set;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -40,58 +42,61 @@ public class UpdaterService extends Service{
             = "com.optedoblivion.MinimalNewsWidget.MinimalNewsWidgetProvider";
     private static final String BG_PREFIX_KEY = "bg_";
     private static final String LINK_PREFIX_KEY = "link_";
+    private static final String COMPLETED_PREFIX_KEY = "completed_";
+    private Set<String> extras;
 
     @Override
     public IBinder onBind(Intent intent) {
         // TODO Auto-generated method stub
         return null;
     }
-
-    public void onCreate(){
-        super.onCreate();
-        syncPrefs();
-        Intent updaterServiceIntent = new Intent(this, UpdaterService.class);
-        updaterServiceIntent.setAction(
-                          "com.optedoblivion.MinimalNewsWidget.START_SERVICE");
-        startService(updaterServiceIntent);
-        dbAdapter = new DBAdapter(this);
-        mContext = this;
+    
+    @Override
+    public void onStart(Intent intent, int startId){
+        super.onStart(intent, startId);
+        int tmpAppWidgetId = 0;
+        if (intent != null){
+             tmpAppWidgetId = intent.getFlags();
+        }
+        Log.i(TAG, "" + tmpAppWidgetId);
+        final int appWidgetId = tmpAppWidgetId;
         uThread = new Thread(){
             public void run(){
                 String RSSLink = null;
                 String XML = null;
                 String inputLine = null;
-                while (true){
-                    syncPrefs();
-                    XML = "";
-                    RSSLink = prefs.getString(LINK_PREFIX_KEY, 
-                    "http://www.optedoblivion.com/?feed=atom");
-                    try{
-                        URL u = new URL(RSSLink);
-                        URLConnection uc = u.openConnection();
-                        BufferedReader in = new BufferedReader(
-                                  new InputStreamReader(uc.getInputStream()));
-                        while((inputLine = in.readLine()) != null){
-                            XML += inputLine;
-                        }
-                        in.close();
-                        insertXML(XML);
-                    }catch(Exception e){
-                        Log.e(TAG, "uThread Work: " + e.toString());
-                    }finally{
-                        try{
-                            Thread.sleep(3600000);
-                        }catch(InterruptedException e){
-                            Log.e(TAG,"uThread Sleep: " + e.toString());
-                        }
+                syncPrefs();
+                XML = "";
+                RSSLink = prefs.getString(LINK_PREFIX_KEY + appWidgetId, null);
+                if (RSSLink == null){
+                    return;
+                }
+                try{
+                    URL u = new URL(RSSLink);
+                    URLConnection uc = u.openConnection();
+                    BufferedReader in = new BufferedReader(
+                              new InputStreamReader(uc.getInputStream()));
+                    while((inputLine = in.readLine()) != null){
+                        XML += inputLine;
                     }
+                    in.close();
+                    insertXML(XML, appWidgetId);
+                }catch(Exception e){
+                    Log.e(TAG, "uThread Work: " + e.toString());
                 }
             }
         };
         uThread.start();
     }
 
-    public void insertXML(String XML) throws SAXException, IOException{
+    public void onCreate(){
+        super.onCreate();
+        dbAdapter = new DBAdapter(this);
+        mContext = this;
+    }
+
+    public void insertXML(String XML, int appWidgetId) 
+                                             throws SAXException, IOException{
         try {
             DocumentBuilderFactory docBuilderFactory = 
                                          DocumentBuilderFactory.newInstance();
@@ -105,7 +110,7 @@ public class UpdaterService extends Service{
             String title = null;
             String link = null;
             String updated = null;
-            dbAdapter.clearFeeds();
+            dbAdapter.clearFeeds(appWidgetId);
             for (i=0;i<nodes.getLength();i++){
                 NodeList nl = (NodeList) nodes.item(i).getChildNodes();
                 title = getValue((Element) nl.item(3));
@@ -117,6 +122,7 @@ public class UpdaterService extends Service{
                 values.put("title", title);
                 values.put("link", link);
                 values.put("updated", updated);
+                values.put("appWidgetId", appWidgetId);
                 dbAdapter.insertFeeds(values);
             }
         } catch (ParserConfigurationException e) {
