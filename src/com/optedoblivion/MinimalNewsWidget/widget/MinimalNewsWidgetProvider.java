@@ -19,6 +19,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
+import android.net.Uri;
 import android.util.Log;
 import android.widget.RemoteViews;
 import android.widget.TextView;
@@ -50,9 +51,9 @@ public class MinimalNewsWidgetProvider extends AppWidgetProvider {
             cancelTimer(key);
             Timer timer = new Timer();
             timer.scheduleAtFixedRate(new WidgetUpdateTimer(context, 
-                                    appWidgetManager, appWidgetId), 1, 5000);
+                                    appWidgetManager, appWidgetId), 1, 15000);
             timer.scheduleAtFixedRate(new ServiceTimer(context, 
-                                                     appWidgetId), 1, 10000);
+                                                     appWidgetId), 1, 3600000);
             timers.put(key, timer);
         }
     }
@@ -114,10 +115,6 @@ public class MinimalNewsWidgetProvider extends AppWidgetProvider {
             currentFeed = 0;
             maxFeeds = 0;
         }
-//      // Create an Intent to launch ExampleActivity
-//      Intent intent = new Intent(context, ExampleActivity.class);
-//      PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, 0);
-//      // Get the layout for the App Widget and attach an on-click listener to the button
 
         @Override
         public void run() {
@@ -154,10 +151,14 @@ public class MinimalNewsWidgetProvider extends AppWidgetProvider {
                 String displayTitle = feeds.get(currentFeed).get(0);
                 String displayLink = feeds.get(currentFeed).get(1);
                 currentFeed++;
-                Intent intent = new Intent(Intent.ACTION_VIEW);
-                PendingIntent pendingIntent = PendingIntent.getActivity(
+                if (displayLink != null){
+                    Intent intent = new Intent(Intent.ACTION_VIEW, 
+                                                      Uri.parse(displayLink));
+                    PendingIntent pendingIntent = PendingIntent.getActivity(
                                                   mContext, 0, intent, 0);
-                //views.setOnClickPendingIntent(views.getLayoutId(), pendingIntent);
+                    views.setOnClickPendingIntent(R.id.TextView01, 
+                                                               pendingIntent);
+                }
                 views.setTextViewText(R.id.TextView01, displayTitle);
             }
             appWidgetManager.updateAppWidget(appWidgetId, views);

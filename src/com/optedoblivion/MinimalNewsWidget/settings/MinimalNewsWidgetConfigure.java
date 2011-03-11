@@ -80,8 +80,7 @@ public class MinimalNewsWidgetConfigure extends Activity{
                                                                useBackground);
             saveTitlePref(context, COMPLETED_PREFIX_KEY, mAppWidgetId, 
                                                                       "true");
-            
-            
+
             // Push widget update to surface with newly set prefix
             AppWidgetManager appWidgetManager = AppWidgetManager
                                                         .getInstance(context);
@@ -91,6 +90,16 @@ public class MinimalNewsWidgetConfigure extends Activity{
             resultValue.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, 
                                                                 mAppWidgetId);
             setResult(RESULT_OK, resultValue);
+            
+            // Service is sleeping b/c we didn't have any settings.  Let it 
+            // know we have settings now.  The timer will take care of it 
+            // for the rest of the run
+            Intent updaterServiceIntent = new Intent(context, 
+                                                        UpdaterService.class);
+            updaterServiceIntent.setAction(
+                         "com.optedoblivion.MinimalNewsWidget.START_SERVICE");
+            updaterServiceIntent.addFlags(mAppWidgetId);
+            context.startService(updaterServiceIntent);
             finish();
         }
     };

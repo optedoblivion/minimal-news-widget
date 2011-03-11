@@ -6,7 +6,6 @@ import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.net.URL;
 import java.net.URLConnection;
-import java.util.Iterator;
 import java.util.Set;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -15,9 +14,9 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.w3c.dom.CharacterData;
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
-import org.w3c.dom.Element;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
@@ -27,10 +26,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.IBinder;
-import android.preference.PreferenceManager;
 import android.util.Log;
 
 import com.optedoblivion.MinimalNewsWidget.data.DBAdapter;
+import com.optedoblivion.MinimalNewsWidget.xmltool.XMLTool;
 
 public class UpdaterService extends Service{
     private static final String TAG = "UpdaterService";
@@ -58,7 +57,6 @@ public class UpdaterService extends Service{
         if (intent != null){
              tmpAppWidgetId = intent.getFlags();
         }
-        Log.i(TAG, "" + tmpAppWidgetId);
         final int appWidgetId = tmpAppWidgetId;
         uThread = new Thread(){
             public void run(){
@@ -112,10 +110,14 @@ public class UpdaterService extends Service{
             String updated = null;
             dbAdapter.clearFeeds(appWidgetId);
             for (i=0;i<nodes.getLength();i++){
-                NodeList nl = (NodeList) nodes.item(i).getChildNodes();
-                title = getValue((Element) nl.item(3));
-                link = nl.item(7).getTextContent().toString();
-                updated = nl.item(9).getTextContent().toString();
+                Element parent = (Element) nodes.item(i);
+                title = XMLTool.getElementValue(parent, "title");
+                if (title.length()>120){
+                    title = title.substring(0, 120);
+                    title += "...";
+                }
+                link = XMLTool.getAttribute(parent, "link", "href");
+                updated = XMLTool.getElementValue(parent, "updated");
                 updated = updated.substring(0, 10) + " " + 
                                     updated.substring(11, updated.length()-1);
                 ContentValues values = new ContentValues();
@@ -130,15 +132,7 @@ public class UpdaterService extends Service{
         }
         
     }
-    
-    public String getValue(Element e) {
-        Node child = e.getFirstChild();
-        if (child instanceof CharacterData) {
-            CharacterData cd = (CharacterData) child;
-            return cd.getData();
-        }
-        return null;
-    }
+
     public void syncPrefs(){
         prefs = this.getSharedPreferences(PREFS_NAME, 0);
     }

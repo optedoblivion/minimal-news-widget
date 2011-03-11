@@ -40,7 +40,6 @@ public class DBAdapter extends SQLiteOpenHelper{
         }catch(Exception e){
             Log.e(TAG, e.toString());
         }
-        
     }
 
     @Override

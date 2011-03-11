@@ -12,7 +12,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal" >
             <EditText 
-                android:text="http://www.cyanogenmod.com/feed" 
+                android:text="https://github.com/cm-gerrit.atom" 
                 android:id="@+id/RSSLink" 
                 android:hint="ATOM Link"
                 android:layout_width="fill_parent" 
