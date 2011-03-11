@@ -5,24 +5,21 @@ import java.util.HashMap;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import com.optedoblivion.MinimalNewsWidget.R;
-import com.optedoblivion.MinimalNewsWidget.R.layout;
-import com.optedoblivion.MinimalNewsWidget.data.DBAdapter;
-import com.optedoblivion.MinimalNewsWidget.service.UpdaterService;
-import com.optedoblivion.MinimalNewsWidget.settings.MinimalNewsWidgetConfigure;
-
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.net.Uri;
-import android.util.Log;
 import android.widget.RemoteViews;
 import android.widget.TextView;
+
+import com.optedoblivion.MinimalNewsWidget.R;
+import com.optedoblivion.MinimalNewsWidget.data.DBAdapter;
+import com.optedoblivion.MinimalNewsWidget.service.UpdaterService;
+import com.optedoblivion.MinimalNewsWidget.settings.MinimalNewsWidgetConfigure;
 
 public class MinimalNewsWidgetProvider extends AppWidgetProvider {
     private static HashMap<String, Timer> timers = null;
